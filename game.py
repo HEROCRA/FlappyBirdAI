@@ -20,7 +20,7 @@ top_pipe_image = pygame.image.load("assets/pipe_top.png")
 bottom_pipe_image = pygame.image.load("assets/pipe_bottom.png")
 
 # Game Constants
-SCROLL_SPEED = 2
+SCROLL_SPEED = 5
 BIRD_START_POSITION = (100, 250)
 score = 0
 high_score = 0
@@ -32,25 +32,27 @@ class Bird(pygame.sprite.Sprite):
         self.image = bird_images[0]
         self.rect = self.image.get_rect(center=BIRD_START_POSITION)
         self.image_index = 0
+        self.prevVel = 0
         self.vel = 0
         self.flap = False
         self.alive = True
 
-    def update(self, user_input):
+    def update(self, action):
         if self.alive:
             self.image_index = (self.image_index + 1) % 30
             self.image = bird_images[self.image_index // 10]
 
+        self.prevVel = self.vel
         self.vel = min(self.vel + 0.5, 7)
         if self.rect.y < 500:
             self.rect.y += int(self.vel)
         if self.vel == 0:
             self.flap = False
 
-        angle = max(-30, min(self.vel * -7, 90))
+        angle = max(-30, min(self.vel * -7, 45))  # Limita l'inclinazione
         self.image = pygame.transform.rotate(self.image, angle)
 
-        if user_input[pygame.K_SPACE] and not self.flap and self.rect.y > 0 and self.alive:
+        if action == 1 and not self.flap and self.rect.y > 0 and self.alive:
             self.flap = True
             self.vel = -7
 
@@ -116,24 +118,44 @@ class FlappyBirdAI:
             self.pipe_timer = random.randint(70, 100)
         self.pipe_timer -= 1
 
-    def game_step(self):
+    def game_step(self, action):
         reward = 0
         self.quit_game()
-        user_input = pygame.key.get_pressed()
         window.blit(skyline_image, (0, 0))
 
         self.spawn_pipe()
         reward += sum(pipe.update() for pipe in self.pipes)
         self.ground.update()
-        self.bird.update(user_input)
+        self.bird.update(action)
 
         self.pipes.draw(window)
         self.ground.draw(window)
         self.bird.draw(window)
 
+        # reward in intervallo
+        min_distance = float('inf')
+        closest_top_pipe = None
+        closest_bottom_pipe = None
+        for pipe in self.pipes:
+            if pipe.rect.x + 26 > self.bird.sprite.rect.x:  # Considera solo le pipe davanti al bird
+                distance = pipe.rect.x - self.bird.sprite.rect.x
+                if distance <= min_distance:
+                    min_distance = distance
+                    if pipe.pipe_type == 'bottom':
+                        closest_bottom_pipe = pipe
+                    else:
+                        closest_top_pipe = pipe
+
+        # Se il bird è nel mezzo dei tubi, aggiungi un reward
+        if closest_top_pipe.rect.bottom < self.bird.sprite.rect.y < closest_bottom_pipe.rect.top:
+            reward += 5
+        else:
+            reward -= 5
+
         score_text = font.render(f'Score: {score}  High Score: {high_score}', True, pygame.Color(255, 255, 255))
         window.blit(score_text, (20, 20))
 
+        # Controllo di collisione con i tubi o il suolo
         if pygame.sprite.spritecollide(self.bird.sprite, self.pipes, False) or \
             pygame.sprite.spritecollide(self.bird.sprite, self.ground, False):
             self.bird.sprite.alive = False
@@ -143,9 +165,3 @@ class FlappyBirdAI:
         clock.tick(60)
         pygame.display.update()
         return reward, not self.bird.sprite.alive, score
-
-if __name__ == '__main__':
-    game = FlappyBirdAI()
-    while True:
-        reward, gameOver, score = game.game_step()
-        print(reward, gameOver, score)
