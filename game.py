@@ -1,9 +1,13 @@
+import os
+
 import pygame
 from sys import exit
 import random
-
+os.environ["SDL_VIDEODRIVER"] = "dummy"
 pygame.init()
+
 clock = pygame.time.Clock()
+
 
 # Window
 WIN_HEIGHT = 720
@@ -43,16 +47,16 @@ class Bird(pygame.sprite.Sprite):
             self.image = bird_images[self.image_index // 10]
 
         self.prevVel = self.vel
-        self.vel = min(self.vel + 0.5, 7)
+        self.vel = min(self.vel + 1, 7)
         if self.rect.y < 500:
             self.rect.y += int(self.vel)
         if self.vel == 0:
             self.flap = False
 
-        angle = max(-30, min(self.vel * -7, 45))  # Limita l'inclinazione
+        angle = max(-30, min(self.vel * -7, 45))
         self.image = pygame.transform.rotate(self.image, angle)
 
-        if action == 1 and not self.flap and self.rect.y > 0 and self.alive:
+        if action[0] == 1 and not self.flap and self.rect.y > 0 and self.alive:
             self.flap = True
             self.vel = -7
 
@@ -74,7 +78,7 @@ class Pipe(pygame.sprite.Sprite):
             if BIRD_START_POSITION[0] > self.rect.left:
                 self.passed = True
                 score += 1
-                return 10
+                return 2
         return 0
 
 class Ground(pygame.sprite.Sprite):
@@ -91,6 +95,7 @@ class Ground(pygame.sprite.Sprite):
 class FlappyBirdAI:
     def __init__(self):
         self.reset()
+        self.consecutive_jumps = 0
 
     def reset(self):
         global score, high_score
@@ -115,22 +120,22 @@ class FlappyBirdAI:
             y_bottom = y_top + random.randint(90, 130) + bottom_pipe_image.get_height()
             self.pipes.add(Pipe(WIN_WIDTH, y_top, top_pipe_image, 'top'))
             self.pipes.add(Pipe(WIN_WIDTH, y_bottom, bottom_pipe_image, 'bottom'))
-            self.pipe_timer = random.randint(70, 100)
+            self.pipe_timer = 70
         self.pipe_timer -= 1
 
     def game_step(self, action):
-        reward = 0
+        reward = 0.1
         self.quit_game()
-        window.blit(skyline_image, (0, 0))
+        # todo window.blit(skyline_image, (0, 0))
 
         self.spawn_pipe()
         reward += sum(pipe.update() for pipe in self.pipes)
         self.ground.update()
         self.bird.update(action)
 
-        self.pipes.draw(window)
-        self.ground.draw(window)
-        self.bird.draw(window)
+        #todo self.pipes.draw(window)
+        #todo self.ground.draw(window)
+        #todo self.bird.draw(window)
 
         # reward in intervallo
         min_distance = float('inf')
@@ -146,22 +151,27 @@ class FlappyBirdAI:
                     else:
                         closest_top_pipe = pipe
 
-        # Se il bird è nel mezzo dei tubi, aggiungi un reward
-        if closest_top_pipe.rect.bottom < self.bird.sprite.rect.y < closest_bottom_pipe.rect.top:
-            reward += 5
+        # Penalità progressiva per salti consecutivi
+        if action[0] == 1:
+            reward -= 0.1 * self.consecutive_jumps  # Penalità quadratica
+            self.consecutive_jumps += 1
         else:
-            reward -= 5
+            self.consecutive_jumps = max(0, self.consecutive_jumps - 1)
 
-        score_text = font.render(f'Score: {score}  High Score: {high_score}', True, pygame.Color(255, 255, 255))
-        window.blit(score_text, (20, 20))
+        # Se il bird è vicino all altezza ottimale rewardalo linearmente in base alla distanza
+        optimal_y = (closest_top_pipe.rect.bottom + closest_bottom_pipe.rect.top) / 2
+        y_deviation = abs(self.bird.sprite.rect.y - optimal_y) / WIN_HEIGHT
+        reward -= y_deviation * 0.5
+
+        #todo score_text = font.render(f'Score: {score}  High Score: {high_score}', True, pygame.Color(255, 255, 255))
+        #todo window.blit(score_text, (20, 20))
 
         # Controllo di collisione con i tubi o il suolo
         if pygame.sprite.spritecollide(self.bird.sprite, self.pipes, False) or \
             pygame.sprite.spritecollide(self.bird.sprite, self.ground, False):
             self.bird.sprite.alive = False
-            self.reset()
-            reward -= 10
+            reward -= 5
+            return reward, True, score
 
-        clock.tick(60)
-        pygame.display.update()
+        # todo pygame.display.update()
         return reward, not self.bird.sprite.alive, score
