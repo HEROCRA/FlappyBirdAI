@@ -3,7 +3,6 @@ import os
 import pygame
 from sys import exit
 import random
-os.environ["SDL_VIDEODRIVER"] = "dummy" #TODO rimuovere se si vuole il rendering
 pygame.init()
 
 clock = pygame.time.Clock()
@@ -78,7 +77,7 @@ class Pipe(pygame.sprite.Sprite):
             if BIRD_START_POSITION[0] > self.rect.left:
                 self.passed = True
                 score += 1
-                return 1
+                return 5
         return 0
 
 class Ground(pygame.sprite.Sprite):
@@ -126,50 +125,56 @@ class FlappyBirdAI:
     def game_step(self, action):
         reward = 0.1
         self.quit_game()
+        window.blit(skyline_image, (0, 0))
 
         self.spawn_pipe()
         reward += sum(pipe.update() for pipe in self.pipes)
         self.ground.update()
         self.bird.update(action)
 
+        self.pipes.draw(window)
+        self.ground.draw(window)
+        self.bird.draw(window)
+
         # reward in intervallo
         min_distance = float('inf')
         closest_top_pipe = None
         closest_bottom_pipe = None
         for pipe in self.pipes:
-            if pipe.pipe_type == 'top' and pipe.rect.right > self.bird.sprite.rect.left:  # Considera solo le pipe davanti al bird
+            if pipe.rect.right > self.bird.sprite.rect.left:  # Considera solo le pipe davanti al bird
                 distance = pipe.rect.left - self.bird.sprite.rect.right
-                if distance < min_distance:
+                if distance <= min_distance:
                     min_distance = distance
-                    closest_top_pipe = pipe
-
-        if closest_top_pipe:
-            for p in self.pipes:
-                if p.pipe_type == 'bottom' and p.rect.centerx == closest_top_pipe.rect.centerx:
-                    closest_bottom_pipe = p
-                    break
+                    if pipe.pipe_type == 'bottom':
+                        closest_bottom_pipe = pipe
+                    else:
+                        closest_top_pipe = pipe
 
         # Penalità se mentre si trova sopra il gap, decide di saltare
         if action[0] == 1 and self.bird.sprite.rect.top <= closest_top_pipe.rect.bottom:
-            reward -= 0.7
+            reward -= 0.5
 
         # Se si trova nel range corretto reward
         in_gap = (closest_top_pipe.rect.bottom < self.bird.sprite.rect.centery < closest_bottom_pipe.rect.top)
         if in_gap:
-            reward += 0.3
+            reward += 0.5
         else:
-            reward -= 0.3
+            reward -= 0.5
 
-        # # Se l'uccello è vicino all altezza ottimale rewardalo linearmente in base alla distanza
-        # optimal_y = (closest_top_pipe.rect.bottom + closest_bottom_pipe.rect.top) / 2
-        # y_deviation = abs(self.bird.sprite.rect.centery - optimal_y) / WIN_HEIGHT
-        # reward -= (y_deviation * 0.5)
+        # Se l'uccello è vicino all altezza ottimale rewardalo linearmente in base alla distanza
+        optimal_y = (closest_top_pipe.rect.bottom + closest_bottom_pipe.rect.top) / 2
+        y_deviation = abs(self.bird.sprite.rect.centery - optimal_y) / WIN_HEIGHT
+        reward -= (y_deviation * 0.5)
+
+        score_text = font.render(f'Score: {score}  High Score: {high_score}', True, pygame.Color(255, 255, 255))
+        window.blit(score_text, (20, 20))
 
         # Controllo di collisione con i tubi o il suolo
         if pygame.sprite.spritecollide(self.bird.sprite, self.pipes, False) or \
-                pygame.sprite.spritecollide(self.bird.sprite, self.ground, False):
+            pygame.sprite.spritecollide(self.bird.sprite, self.ground, False):
             self.bird.sprite.alive = False
             reward -= 5
             return reward, True, score
 
+        pygame.display.update()
         return reward, not self.bird.sprite.alive, score
