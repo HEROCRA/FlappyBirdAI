@@ -78,8 +78,6 @@ class Pipe(pygame.sprite.Sprite):
             if BIRD_START_POSITION[0] > self.rect.left:
                 self.passed = True
                 score += 1
-                return 2
-        return 0
 
 class Ground(pygame.sprite.Sprite):
     def __init__(self, x, y):
