@@ -1,6 +1,7 @@
 import os
 import pygame
 import random
+import matplotlib.pyplot as plt
 from sys import exit
 import copy
 
@@ -195,13 +196,32 @@ class simpleSearchFlappy:
 
 if __name__ == "__main__":
     game = simpleSearchFlappy()
+    scores = []  # Lista per salvare tutti gli score
+
+    plt.ion()  # Modalità interattiva ON
+    fig, ax = plt.subplots()
+    line, = ax.plot([], [], 'b-')  # Linea blu
+
+    ax.set_xlabel('Numero di partite')
+    ax.set_ylabel('Punteggio')
+    ax.set_title('Andamento punteggi nel tempo')
+
     try:
         while True:
             done, current_score = game.game_step()
-            input("Press ENTER to continue...")
-            print(current_score)
             if done:
                 print(f"Game Over! Score: {current_score}")
+                scores.append(current_score)
+
+                # Aggiorna il grafico
+                line.set_xdata(range(len(scores)))
+                line.set_ydata(scores)
+                ax.relim()
+                ax.autoscale_view()
+
+                plt.draw()
+                plt.pause(0.01)
+
                 game.reset()
     except KeyboardInterrupt:
         print("Game interrotto dall'utente.")
