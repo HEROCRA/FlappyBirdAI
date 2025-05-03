@@ -108,6 +108,16 @@ def train():
     update_interval = 50
     record = 0
     agent = Agent()
+
+    # Caricare un modello
+    load_choice = input("Vuoi caricare un modello salvato? (s/n): ").lower()
+    if load_choice == 's':
+        try:
+            record = int(input("Inserisci il record del modello da caricare: "))
+            agent.model.load(record)
+        except Exception as e:
+            print(f"Errore nel caricamento del modello: {e}")
+
     game = FlappyBirdAI()
     while True:
         # get old state
