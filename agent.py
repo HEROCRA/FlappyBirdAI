@@ -6,8 +6,8 @@ from game import FlappyBirdAI, Bird, Pipe, Ground, WIN_HEIGHT, WIN_WIDTH
 from model import Linear_QNet, QTrainer
 from helper import plot
 
-BATCH_SIZE = 512
-LR = 0.0005
+BATCH_SIZE = 256
+LR = 0.001
 GAMMA = 0.99
 MAX_MEMORY = 50_000
 
@@ -15,11 +15,11 @@ class Agent:
 
     def __init__(self):
         self.n_games = 0
-        self.epsilon = 0 # randomness
+        self.epsilon = 1 # randomness
         self.gamma = GAMMA # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
 
-        self.model = Linear_QNet(8, 2)
+        self.model = Linear_QNet(10, 2)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
@@ -43,26 +43,29 @@ class Agent:
     # next_pipe_up_y, next_pipe_down_y, birdSpeed, bird_acceleration (speed-prevSpeed),  in_pipe, y_pos, isFlapping, x_distance_from_pipe
         if closest_bottom_pipe is None or closest_top_pipe is None:
             optimal_y = WIN_HEIGHT/3
-            dist_x = 9999
-            bottom_pipe_y = 9999
-            top_pipe_y = 9999
-            in_pipe = False
+            dist_x = 1
+            bottom_pipe_y = 0
+            top_pipe_y = 0
+            in_pipe = 0
+            delta_y = 0
         else:
             optimal_y = (closest_top_pipe.rect.bottom + closest_bottom_pipe.rect.top) / 2
             dist_x = (closest_bottom_pipe.rect.x.__int__() - (closest_bottom_pipe.rect.width.__int__() // 2)) - game.bird.sprite.rect.x.__int__()
             bottom_pipe_y = closest_bottom_pipe.rect.top.__int__()
             top_pipe_y = closest_top_pipe.rect.bottom.__int__()
             in_pipe = (closest_bottom_pipe.rect.x.__int__() - game.bird.sprite.rect.x.__int__()) <= 26
-
+            delta_y = (optimal_y - game.bird.sprite.rect.y)
         state = [
             optimal_y / WIN_HEIGHT, #Altezza ottimale
+            delta_y / WIN_HEIGHT, #Distanza dall'altezza ottimale
             dist_x / WIN_WIDTH,  # Distanza orizzontale normalizzata
             bottom_pipe_y / WIN_HEIGHT,  # Altezza tubo inferiore normalizzata
             top_pipe_y / WIN_HEIGHT,  # Altezza tubo superiore normalizzata
             float(in_pipe),  # Indicatore se l'uccello è tra i tubi
             float(game.bird.sprite.flap),  # Indicatore se l'uccello sta sbattendo le ali
             game.bird.sprite.rect.y / WIN_HEIGHT,  # Posizione verticale normalizzata
-            game.bird.sprite.vel / 7
+            game.bird.sprite.vel / 7,
+            game.bird.sprite.prevVel / 7
         ]
 
         return np.array(state, dtype=np.float32)
@@ -86,7 +89,7 @@ class Agent:
         # random moves: tradeoff exploration / exploitation
         # 1 0 salta, 0 1 non salta
         final_move = [0,0]
-        self.epsilon = max(5.0, self.epsilon * 0.995)
+        self.epsilon = max(0.1, self.epsilon * 0.995)
         if random.randint(0, 100) < self.epsilon:
             move = random.randint(0,10)
             if move >= 9: # Scelta casuale (esplorazione)
@@ -97,7 +100,7 @@ class Agent:
             state0 = torch.tensor(state, dtype=torch.float)
             prediction = self.model(state0)  # Output della rete neurale
             move = torch.argmax(prediction).item()  # Indice della mossa migliore
-        final_move[move] = 1
+        final_move[0 if move==0 else 1] = 1
         return final_move
 
 
@@ -128,6 +131,7 @@ def train():
 
         # perform move and get new state
         reward, done, score = game.game_step(final_move)
+        # print(f'Reward: {reward} Done {done} Score: {score}')
 
         state_new = agent.get_state(game)
         # train short memory

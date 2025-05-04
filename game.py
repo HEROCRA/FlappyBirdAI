@@ -124,7 +124,7 @@ class FlappyBirdAI:
         self.pipe_timer -= 1
 
     def game_step(self, action):
-        reward = 0.1
+        reward = 1
         self.quit_game()
         # todo window.blit(skyline_image, (0, 0))
 
@@ -153,15 +153,30 @@ class FlappyBirdAI:
 
         # Penalità progressiva per salti consecutivi
         if action[0] == 1:
-            reward -= 0.1 * self.consecutive_jumps  # Penalità quadratica
+            reward -= 0.05 * self.consecutive_jumps
             self.consecutive_jumps += 1
         else:
             self.consecutive_jumps = max(0, self.consecutive_jumps - 1)
 
         # Se il bird è vicino all altezza ottimale rewardalo linearmente in base alla distanza
-        optimal_y = (closest_top_pipe.rect.bottom + closest_bottom_pipe.rect.top) / 2
-        y_deviation = abs(self.bird.sprite.rect.y - optimal_y) / WIN_HEIGHT
-        reward -= y_deviation * 0.5
+        if closest_top_pipe and closest_bottom_pipe:
+            gap_top = closest_top_pipe.rect.bottom
+            gap_bottom = closest_bottom_pipe.rect.top
+            bird_y = self.bird.sprite.rect.y
+
+            if gap_top < bird_y < gap_bottom:
+                # Nel gap, calcola quanto è vicino al centro del gap
+                optimal_y = (gap_top + gap_bottom) / 2
+                y_dev = abs(bird_y - optimal_y) / (gap_bottom - gap_top)
+                # Più è vicino al centro, più reward (massimo +0.2)
+                reward += (1 - y_dev) * 0.2
+            else:
+                # Fuori dal gap, penalità proporzionale alla distanza
+                if bird_y < gap_top:
+                    y_dev = (gap_top - bird_y) / WIN_HEIGHT
+                else:
+                    y_dev = (bird_y - gap_bottom) / WIN_HEIGHT
+                reward -= y_dev * 0.4  # Penalità più pesante
 
         #todo score_text = font.render(f'Score: {score}  High Score: {high_score}', True, pygame.Color(255, 255, 255))
         #todo window.blit(score_text, (20, 20))
