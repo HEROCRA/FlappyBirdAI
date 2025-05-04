@@ -9,9 +9,9 @@ import os
 class Linear_QNet(nn.Module):
     def __init__(self, input_size, output_size):
         super().__init__()
-        self.linear1 = nn.Linear(input_size, 256)
-        self.linear2 = nn.Linear(256, 128)
-        self.linear3 = nn.Linear(128, output_size)
+        self.linear1 = nn.Linear(input_size, 64)
+        self.linear2 = nn.Linear(64, 32)
+        self.linear3 = nn.Linear(32, output_size)
 
 
     def forward(self, x):
@@ -31,9 +31,9 @@ class Linear_QNet(nn.Module):
         model_path = os.path.join('./model' + str(top), file_name)
         if os.path.exists(model_path):
             self.load_state_dict(torch.load(model_path))
-            print(f"Model loaded from {model_path}")
+            print(f"Modello caricato da {model_path}")
         else:
-            print(f"No model found at {model_path}")
+            print(f"Nessun modello trovato in {model_path}")
 
 
 class QTrainer:
