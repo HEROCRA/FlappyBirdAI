@@ -9,7 +9,7 @@
 La seguente repository contiene tutti gli artefatti relativi al progetto di Fondamenti di Intelligenza Artificiale presentato svolto nell'Anno Accademico 2024/25 dell'<a href="https://www.unisa.it">**Università degli Studi di Salerno**</a>.
 
 ## Ambito del progetto
-FlappyAI nasce dalla curiosit`a di vedere come due approcci di training differenti permettano a un’intelligenza artificiale di giocare in modo perfetto a un videogioco: Flappy Bird.
+FlappyAI nasce dalla curiosità di vedere come due approcci di training differenti permettano a un’intelligenza artificiale di giocare in modo perfetto a un videogioco: Flappy Bird.
 
 ## Autori
 - **Antonio Ceruso**        - *Developer*   - [Github](https://github.com/AntonioCherry)
